@@ -22,6 +22,8 @@
 #include "../config.h"
 #include "../types.h"
 
+#include "edge.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -49,8 +51,9 @@
    is used for instrumentation output before __afl_map_shm() has a chance to run.
    It will end up as .comm, so it shouldn't be too wasteful. */
 
-u8  __afl_area_initial[MAP_SIZE];
-u8* __afl_area_ptr = __afl_area_initial;
+//u8  __afl_area_initial[MAP_SIZE];
+//u8* __afl_area_ptr = __afl_area_initial;
+u32* __afl_area_ptr = map;
 
 __thread u32 __afl_prev_loc;
 
@@ -63,29 +66,33 @@ static u8 is_persistent;
 /* SHM setup. */
 
 static void __afl_map_shm(void) {
+//
+//  u8 *id_str = getenv(SHM_ENV_VAR);
+//
+//  /* If we're running under AFL, attach to the appropriate region, replacing the
+//     early-stage __afl_area_initial region that is needed to allow some really
+//     hacky .init code to work correctly in projects such as OpenSSL. */
+//
+//  if (id_str) {
+//
+//    u32 shm_id = atoi(id_str);
+//
+//    __afl_area_ptr = shmat(shm_id, NULL, 0);
+//
+//    /* Whooooops. */
+//
+//    if (__afl_area_ptr == (void *)-1) _exit(1);
+//
+//    /* Write something into the bitmap so that even with low AFL_INST_RATIO,
+//       our parent doesn't give up on us. */
+//
+//    __afl_area_ptr[0] = 1;
+//
+//  }
 
-  u8 *id_str = getenv(SHM_ENV_VAR);
 
-  /* If we're running under AFL, attach to the appropriate region, replacing the
-     early-stage __afl_area_initial region that is needed to allow some really
-     hacky .init code to work correctly in projects such as OpenSSL. */
-
-  if (id_str) {
-
-    u32 shm_id = atoi(id_str);
-
-    __afl_area_ptr = shmat(shm_id, NULL, 0);
-
-    /* Whooooops. */
-
-    if (__afl_area_ptr == (void *)-1) _exit(1);
-
-    /* Write something into the bitmap so that even with low AFL_INST_RATIO,
-       our parent doesn't give up on us. */
-
-    __afl_area_ptr[0] = 1;
-
-  }
+// skip this function first
+return;
 
 }
 
@@ -187,8 +194,9 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
     if (is_persistent) {
 
-      memset(__afl_area_ptr, 0, MAP_SIZE);
-      __afl_area_ptr[0] = 1;
+//      memset(__afl_area_ptr, 0, MAP_SIZE);
+//      __afl_area_ptr[0] = 1;
+      delete_all();
       __afl_prev_loc = 0;
     }
 
@@ -204,7 +212,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
       raise(SIGSTOP);
 
-      __afl_area_ptr[0] = 1;
+//      __afl_area_ptr[0] = 1;
       __afl_prev_loc = 0;
 
       return 1;
@@ -215,7 +223,8 @@ int __afl_persistent_loop(unsigned int max_cnt) {
          follows the loop is not traced. We do that by pivoting back to the
          dummy output region. */
 
-      __afl_area_ptr = __afl_area_initial;
+//      __afl_area_ptr = __afl_area_initial;
+      __afl_area_ptr = map;
 
     }
 

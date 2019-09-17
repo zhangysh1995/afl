@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="afc84165-0e96-46cf-999e-dee91f635410" name="chcpu12a" url="http://chcpu12a.cse.ust.hk">
+        <fileTransfer host="chcpu12a.cse.ust.hk" port="22" rootFolder="/home/zhangys/remote" accessType="SFTP">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" shareSSLContext="true" />
+          </advancedOptions>
+          <option name="port" value="22" />
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

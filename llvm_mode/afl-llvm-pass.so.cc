@@ -24,6 +24,7 @@
 
 #define AFL_LLVM_PASS
 
+#include "edge.h"
 #include "../config.h"
 #include "../debug.h"
 
@@ -96,9 +97,15 @@ bool AFLCoverage::runOnModule(Module &M) {
   /* Get globals for the SHM region and the previous location. Note that
      __afl_prev_loc is thread-local. */
 
+
+  // create the pointer to the edge map
   GlobalVariable *AFLMapPtr =
-      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
-                         GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
+          new GlobalVariable(M, PointerType::get(Int32Ty, 0), false,
+                             GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
+
+//  GlobalVariable *AFLMapPtr =
+//      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
+//                         GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
 
   GlobalVariable *AFLPrevLoc = new GlobalVariable(
       M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc",
@@ -128,6 +135,8 @@ bool AFLCoverage::runOnModule(Module &M) {
       PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
       Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
 
+
+
       /* Load SHM pointer */
 
       LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
@@ -135,13 +144,19 @@ bool AFLCoverage::runOnModule(Module &M) {
       Value *MapPtrIdx =
           IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
 
-      /* Update bitmap */
 
-      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
-      Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
-      IRB.CreateStore(Incr, MapPtrIdx)
-          ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+//      /* Update bitmap */
+//
+//      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
+//      Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+//      Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
+//      IRB.CreateStore(Incr, MapPtrIdx)
+//          ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+
+      /* Update the edge hashmap*/
+
+
 
       /* Set prev_loc to cur_loc >> 1 */
 
