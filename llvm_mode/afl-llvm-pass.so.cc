@@ -94,6 +94,17 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   }
 
+  /*
+   * Get proto to the function we use
+   */
+
+//  Function* crEdge = M.getOrInsertFunction("create_edge");
+//  Function* addEdge = M.getOrInsertFunction("add_edge");
+//  Function* findEdge = M.getOrInsertFunction("find_edge");
+//  Function* updateEdge = M.getOrInsertFunction("update_edge");
+
+
+
   /* Get globals for the SHM region and the previous location. Note that
      __afl_prev_loc is thread-local. */
 
@@ -141,12 +152,23 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
       MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+      // hash of the edge
       Value *MapPtrIdx =
           IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
 
 
-//      /* Update bitmap */
-//
+      // TODO: create the Edge struct
+      CallInst *crEdge = IRB.CreateCall(, );
+
+      /* Update the edge hashmap*/
+      // TODO: insert the edge into hashtable
+      CallInst *inEdge = IRB.CreateCall();
+
+
+
+      /* Update bitmap */
+
 //      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
 //      Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 //      Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
@@ -154,7 +176,6 @@ bool AFLCoverage::runOnModule(Module &M) {
 //          ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
 
-      /* Update the edge hashmap*/
 
 
 
