@@ -52,9 +52,9 @@ namespace {
 
       bool runOnModule(Module &M) override;
 
-      // StringRef getPassName() const override {
-      //  return "American Fuzzy Lop Instrumentation";
-      // }
+       StringRef getPassName() const override {
+        return "American Fuzzy Lop Instrumentation";
+       }
 
   };
 
@@ -66,42 +66,47 @@ char AFLCoverage::ID = 0;
 
 bool AFLCoverage::runOnModule(Module &M) {
 
-  LLVMContext &C = M.getContext();
+    LLVMContext &C = M.getContext();
 
-  IntegerType *Int8Ty  = IntegerType::getInt8Ty(C);
-  IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
+    IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
+    IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
 
-  PointerType *Ptr32Ty = PointerType::get(Type::getInt32Ty(C), 0);
+    PointerType *Ptr32Ty = PointerType::get(Type::getInt32Ty(C), 0);
 
 //  Type *FunPtr32Ty = FunctionType::get(PointerType::getInt32PtrTy(C));
-  Type *FuncVoidTy = FunctionType::getVoidTy(C);
+    Type *FuncVoidTy = FunctionType::getVoidTy(C);
 
-  /* Show a banner */
+    /* Show a banner */
 
-  char be_quiet = 0;
+    char be_quiet = 0;
 
-  if (isatty(2) && !getenv("AFL_QUIET")) {
+    if (isatty(2) && !getenv("AFL_QUIET")) {
 
-    SAYF(cCYA "afl-llvm-pass " cBRI VERSION cRST " by <lszekeres@google.com>\n");
+        SAYF(cCYA
+                     "afl-llvm-pass "
+                     cBRI
+                     VERSION
+                     cRST
+                     " by <lszekeres@google.com>\n");
 
-  } else be_quiet = 1;
+    } else be_quiet = 1;
 
-  /* Decide instrumentation ratio */
+    /* Decide instrumentation ratio */
 
-  char* inst_ratio_str = getenv("AFL_INST_RATIO");
-  unsigned int inst_ratio = 100;
+    char *inst_ratio_str = getenv("AFL_INST_RATIO");
+    unsigned int inst_ratio = 100;
 
-  if (inst_ratio_str) {
+    if (inst_ratio_str) {
 
-    if (sscanf(inst_ratio_str, "%u", &inst_ratio) != 1 || !inst_ratio ||
-        inst_ratio > 100)
-      FATAL("Bad value of AFL_INST_RATIO (must be between 1 and 100)");
+        if (sscanf(inst_ratio_str, "%u", &inst_ratio) != 1 || !inst_ratio ||
+            inst_ratio > 100)
+            FATAL("Bad value of AFL_INST_RATIO (must be between 1 and 100)");
 
-  }
+    }
 
-  /*
-   * Get proto to the function we use
-   */
+    /*
+     * Get proto to the function we use
+     */
 
 //  Function* crEdge = M.getOrInsertFunction("create_edge");
 //  Function* addEdge = M.getOrInsertFunction("add_edge");
@@ -109,12 +114,33 @@ bool AFLCoverage::runOnModule(Module &M) {
 //  Function* updateEdge = M.getOrInsertFunction("update_edge");
 
 
+    // retrieve the function
+    Constant *find_edge = M.getOrInsertFunction("find_edge",
+                                                Ptr32Ty,
+                                                Int32Ty,
+                                                NULL);
 
-  /* Get globals for the SHM region and the previous location. Note that
-     __afl_prev_loc is thread-local. */
+    Constant *create_edge = M.getOrInsertFunction("new_edge",
+                                                  Ptr32Ty,
+                                                  Int32Ty,
+                                                  NULL);
+
+    Constant *add_edge = M.getOrInsertFunction("add_edge",
+                                               FuncVoidTy,
+                                               Int32Ty,
+                                               NULL);
+
+    Constant *update_count = M.getOrInsertFunction("update_count",
+                                                   FuncVoidTy,
+                                                   Int32Ty,
+                                                   NULL);
 
 
-  // create the pointer to the edge map
+    /* Get globals for the SHM region and the previous location. Note that
+       __afl_prev_loc is thread-local. */
+
+
+    // create the pointer to the edge map
 //  GlobalVariable *AFLMapPtr =
 //          new GlobalVariable(M, PointerType::get(Int32Ty, 0), false,
 //                             GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
@@ -123,36 +149,37 @@ bool AFLCoverage::runOnModule(Module &M) {
 //      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
 //                         GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
 
-  GlobalVariable *AFLPrevLoc = new GlobalVariable(
-      M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc",
-      0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
+    GlobalVariable *AFLPrevLoc = new GlobalVariable(
+            M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc",
+            0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
 
-  /* Instrument all the things! */
+    /* Instrument all the things! */
 
-  int inst_blocks = 0;
+    int inst_blocks = 0;
 
-  for (auto &F : M)
+    for (auto &F : M) {
+
     for (auto &BB : F) {
 
-      BasicBlock::iterator IP = BB.getFirstInsertionPt();
-      IRBuilder<> IRB(&(*IP));
+        BasicBlock::iterator IP = BB.getFirstInsertionPt();
+        IRBuilder<> IRB(&(*IP));
 
-      if (AFL_R(100) >= inst_ratio) continue;
+        if (AFL_R(100) >= inst_ratio) continue;
 
-      /* Make up cur_loc */
+        /* Make up cur_loc */
 
-      unsigned int cur_loc = AFL_R(MAP_SIZE);
+        unsigned int cur_loc = AFL_R(MAP_SIZE);
 
-      ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
+        ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
 
-      /* Load prev_loc */
+        /* Load prev_loc */
 
-      LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
-      PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
+        LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
+        PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+        Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
 
 
-
+        Value *MapPtrIdx = IRB.CreateXor(PrevLocCasted, CurLoc);
 //      /* Load SHM pointer */
 //
 //      LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
@@ -163,63 +190,40 @@ bool AFLCoverage::runOnModule(Module &M) {
 //          IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
 
 
-      Value *MapPtrIdx = IRB.CreateXor(PrevLocCasted, CurLoc);
+        // FIXME: too much memmory usage
+        // new blocks
+        BasicBlock *add = BasicBlock::Create(C, "add", &F);
+        BasicBlock *update = BasicBlock::Create(C, "update", &F);
 
-      // retrieve the function
-      Constant *find_edge = M.getOrInsertFunction("find_edge",
-              Ptr32Ty,
-              Int32Ty,
-              NULL);
+        // find the edge
+        Value *new_edge = IRB.CreateCall(find_edge, MapPtrIdx);
 
-      Constant *create_edge = M.getOrInsertFunction("new_edge",
-              Ptr32Ty,
-              Int32Ty,
-              NULL);
+        /* how do we add edge */
+        IRBuilder<> addBuilder(add);
+        // Create the new edge
+        Value *create_call = addBuilder.CreateCall(create_edge, MapPtrIdx);
 
-      Constant *add_edge = M.getOrInsertFunction("add_edge",
-              FuncVoidTy,
-              Int32Ty,
-              NULL);
-
-      Constant *update_count = M.getOrInsertFunction("update_count",
-              FuncVoidTy,
-              Int32Ty,
-              NULL);
-
-      // find the edge
-      Value *new_edge = IRB.CreateCall(find_edge, MapPtrIdx);
-
-      // new blocks
-      BasicBlock *add = BasicBlock::Create(M.getContext(), "add", &F);
-      BasicBlock *update = BasicBlock::Create(M.getContext(), "update", &F);
+        // Insert to the edge hashmap
+        addBuilder.CreateCall(add_edge, create_call);
 
 
-      /* how do we add edge */
-      IRBuilder<> addBuilder(add);
-      // Create the new edge
-      Value* create_call = addBuilder.CreateCall(create_edge, MapPtrIdx);
-
-      // Insert to the edge hashmap
-      addBuilder.CreateCall(add_edge, create_call);
+        /* how do we update edge */
+        IRBuilder<> updateBuilder(update);
+        // update the count
+        updateBuilder.CreateCall(update_count, MapPtrIdx);
 
 
-      /* how do we update edge */
-      IRBuilder<> updateBuilder(update);
-      // update the count
-      updateBuilder.CreateCall(update_count, MapPtrIdx);
+        // Is the edge new?
+        Value *edge_exits = IRB.CreatePtrDiff(new_edge,
+                                              Constant::getNullValue(Ptr32Ty));
 
-
-      // Is the edge new?
-      Value* edge_exits = IRB.CreatePtrDiff(new_edge,
-              Constant::getNullValue(PointerType::getInt32PtrTy(M.getContext())));
-
-      // new edge -> add
-      // seen edge -> update
-      BranchInst *br = IRB.CreateCondBr(edge_exits, add, update);
+        // new edge -> add
+        // seen edge -> update
+        BranchInst *br = IRB.CreateCondBr(edge_exits, add, update);
 
 
 
-      /* Update bitmap */
+        /* Update bitmap */
 
 //      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
 //      Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
@@ -228,15 +232,15 @@ bool AFLCoverage::runOnModule(Module &M) {
 //          ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
 
-      /* Set prev_loc to cur_loc >> 1 */
-      StoreInst *Store =
-          IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
-      Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+        /* Set prev_loc to cur_loc >> 1 */
+        StoreInst *Store =
+                IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
+        Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-      inst_blocks++;
+        inst_blocks++;
 
     }
-
+}
   /* Say something nice. */
 
   if (!be_quiet) {
