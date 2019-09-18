@@ -53,7 +53,7 @@
 
 //u8  __afl_area_initial[MAP_SIZE];
 //u8* __afl_area_ptr = __afl_area_initial;
-u32* __afl_area_ptr = map;
+//u32* __afl_area_ptr = map;
 
 __thread u32 __afl_prev_loc;
 
@@ -224,7 +224,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
          dummy output region. */
 
 //      __afl_area_ptr = __afl_area_initial;
-      __afl_area_ptr = map;
+//      __afl_area_ptr = map;
 
     }
 
@@ -274,7 +274,7 @@ __attribute__((constructor(CONST_PRIO))) void __afl_auto_init(void) {
    edge (as opposed to every basic block). */
 
 void __sanitizer_cov_trace_pc_guard(uint32_t* guard) {
-  __afl_area_ptr[*guard]++;
+//  __afl_area_ptr[*guard]++;
 }
 
 

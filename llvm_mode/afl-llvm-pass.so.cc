@@ -71,6 +71,11 @@ bool AFLCoverage::runOnModule(Module &M) {
   IntegerType *Int8Ty  = IntegerType::getInt8Ty(C);
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
 
+  PointerType *Ptr32Ty = PointerType::get(Type::getInt32Ty(C), 0);
+
+//  Type *FunPtr32Ty = FunctionType::get(PointerType::getInt32PtrTy(C));
+  Type *FuncVoidTy = FunctionType::getVoidTy(C);
+
   /* Show a banner */
 
   char be_quiet = 0;
@@ -110,9 +115,9 @@ bool AFLCoverage::runOnModule(Module &M) {
 
 
   // create the pointer to the edge map
-  GlobalVariable *AFLMapPtr =
-          new GlobalVariable(M, PointerType::get(Int32Ty, 0), false,
-                             GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
+//  GlobalVariable *AFLMapPtr =
+//          new GlobalVariable(M, PointerType::get(Int32Ty, 0), false,
+//                             GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
 
 //  GlobalVariable *AFLMapPtr =
 //      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
@@ -148,22 +153,69 @@ bool AFLCoverage::runOnModule(Module &M) {
 
 
 
-      /* Load SHM pointer */
+//      /* Load SHM pointer */
+//
+//      LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+//      MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+//
+//      // hash of the edge
+//      Value *MapPtrIdx =
+//          IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
 
-      LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
-      MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
-      // hash of the edge
-      Value *MapPtrIdx =
-          IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
+      Value *MapPtrIdx = IRB.CreateXor(PrevLocCasted, CurLoc);
+
+      // retrieve the function
+      Constant *find_edge = M.getOrInsertFunction("find_edge",
+              Ptr32Ty,
+              Int32Ty,
+              NULL);
+
+      Constant *create_edge = M.getOrInsertFunction("new_edge",
+              Ptr32Ty,
+              Int32Ty,
+              NULL);
+
+      Constant *add_edge = M.getOrInsertFunction("add_edge",
+              FuncVoidTy,
+              Int32Ty,
+              NULL);
+
+      Constant *update_count = M.getOrInsertFunction("update_count",
+              FuncVoidTy,
+              Int32Ty,
+              NULL);
+
+      // find the edge
+      Value *new_edge = IRB.CreateCall(find_edge, MapPtrIdx);
+
+      // new blocks
+      BasicBlock *add = BasicBlock::Create(M.getContext(), "add", &F);
+      BasicBlock *update = BasicBlock::Create(M.getContext(), "update", &F);
 
 
-      // TODO: create the Edge struct
-      CallInst *crEdge = IRB.CreateCall(, );
+      /* how do we add edge */
+      IRBuilder<> addBuilder(add);
+      // Create the new edge
+      Value* create_call = addBuilder.CreateCall(create_edge, MapPtrIdx);
 
-      /* Update the edge hashmap*/
-      // TODO: insert the edge into hashtable
-      CallInst *inEdge = IRB.CreateCall();
+      // Insert to the edge hashmap
+      addBuilder.CreateCall(add_edge, create_call);
+
+
+      /* how do we update edge */
+      IRBuilder<> updateBuilder(update);
+      // update the count
+      updateBuilder.CreateCall(update_count, MapPtrIdx);
+
+
+      // Is the edge new?
+      Value* edge_exits = IRB.CreatePtrDiff(new_edge,
+              Constant::getNullValue(PointerType::getInt32PtrTy(M.getContext())));
+
+      // new edge -> add
+      // seen edge -> update
+      BranchInst *br = IRB.CreateCondBr(edge_exits, add, update);
 
 
 
@@ -176,11 +228,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 //          ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
 
-
-
-
       /* Set prev_loc to cur_loc >> 1 */
-
       StoreInst *Store =
           IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
       Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));

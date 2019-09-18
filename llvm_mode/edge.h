@@ -20,7 +20,7 @@ struct Edge *map = NULL;
 // create
 struct Edge *new_edge(int hash) {
     struct Edge* edge = (struct Edge *)malloc(sizeof(struct Edge));
-    *edge = (struct Edge){hash, 0};
+    *edge = (struct Edge){hash, 1};
     return edge;
 }
 
@@ -37,16 +37,23 @@ struct Edge *find_edge(int hash) {
     return e;
 }
 
+// update count
+void update_count(int hash) {
+    struct Edge *e = find_edge(hash);
+    e->count++;
+}
+
 // replace the item
 struct Edge *update_edge(int hash, struct Edge *e) {
     struct Edge *s;
 
+    // `s` points to the deleted element
     HASH_REPLACE_INT(map, hash, e, s);
     return s;
 }
 
 // delete the Edge
-void delete_edge(Edge *e) {
+void delete_edge(struct Edge *e) {
     HASH_DEL(map, e);
     free(e);
 }
@@ -55,7 +62,7 @@ void delete_edge(Edge *e) {
 void delete_all() {
     struct Edge *current, *tmp;
 
-    HASH_ITER(hash, map, current, tmp) {
+    HASH_ITER(hh, map, current, tmp) {
         HASH_DEL(map, current);
         free(current);
     }
