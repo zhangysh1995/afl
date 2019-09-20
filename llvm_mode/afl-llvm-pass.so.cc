@@ -68,17 +68,14 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     LLVMContext &C = M.getContext();
 
-//    IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
 
     // 64 bit?
     IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
     // 64 bit?
-//    PointerType *Ptr32Ty = PointerType::get(Type::getInt64Ty(C), 0);
 
     // the pointer to the struct
     StructType *StructTy = StructType::get(C);
     PointerType *PtrStructTy = PointerType::get(StructTy, 0);
-//    Constant* NullStructPtr = Constant::getNullValue(PtrStructTy);
 
     // nullptr
     ConstantPointerNull* NullPTR = ConstantPointerNull::get(PtrStructTy);
@@ -116,16 +113,6 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     }
 
-    /*
-     * Get proto to the function we use
-     */
-
-//  Function* crEdge = M.getOrInsertFunction("create_edge");
-//  Function* addEdge = M.getOrInsertFunction("add_edge");
-//  Function* findEdge = M.getOrInsertFunction("find_edge");
-//  Function* updateEdge = M.getOrInsertFunction("update_edge");
-
-
     // retrieve the function
     Constant *find_edge = M.getOrInsertFunction("find_edge",
                                                 PtrStructTy,
@@ -147,19 +134,6 @@ bool AFLCoverage::runOnModule(Module &M) {
                                                    Int32Ty,
                                                    NULL);
 
-
-    /* Get globals for the SHM region and the previous location. Note that
-       __afl_prev_loc is thread-local. */
-
-
-    // create the pointer to the edge map
-//  GlobalVariable *AFLMapPtr =
-//          new GlobalVariable(M, PointerType::get(Int32Ty, 0), false,
-//                             GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
-
-//  GlobalVariable *AFLMapPtr =
-//      new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
-//                         GlobalValue::ExternalLinkage, 0, "__afl_area_ptr");
 
     GlobalVariable *AFLPrevLoc = new GlobalVariable(
             M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc",
@@ -205,15 +179,6 @@ bool AFLCoverage::runOnModule(Module &M) {
         // hash of the edge
         Value *MapPtrIdx = IRB.CreateXor(PrevLocCasted, CurLoc);
 
-//      /* Load SHM pointer */
-//
-//      LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
-//      MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-//
-
-//      Value *MapPtrIdx =
-//          IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
-
 
         // find the edge
         Value *new_edge = IRB.CreateCall(find_edge, MapPtrIdx);
@@ -242,16 +207,6 @@ bool AFLCoverage::runOnModule(Module &M) {
         IRB.CreateCondBr(cond, update, add);
 
 
-
-        /* Update bitmap */
-
-//      LoadInst *Counter = IRB.CreateLoad(MapPtrIdx);
-//      Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-//      Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
-//      IRB.CreateStore(Incr, MapPtrIdx)
-//          ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-
-
         /* Set prev_loc to cur_loc >> 1 */
         StoreInst *Store =
                 IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
@@ -260,11 +215,6 @@ bool AFLCoverage::runOnModule(Module &M) {
         inst_blocks++;
 
     }
-
-//    add = nullptr;
-//    update = nullptr;
-//    delete  add;
-//    delete  update;
 }
   /* Say something nice. */
 
