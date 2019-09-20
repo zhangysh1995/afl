@@ -68,17 +68,17 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     LLVMContext &C = M.getContext();
 
-    IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
+//    IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
 
     // 64 bit?
-    IntegerType *Int32Ty = IntegerType::getInt64Ty(C);
+    IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
     // 64 bit?
-    PointerType *Ptr32Ty = PointerType::get(Type::getInt64Ty(C), 0);
+//    PointerType *Ptr32Ty = PointerType::get(Type::getInt64Ty(C), 0);
 
     // the pointer to the struct
     StructType *StructTy = StructType::get(C);
     PointerType *PtrStructTy = PointerType::get(StructTy, 0);
-    Constant* NullStructPtr = Constant::getNullValue(PtrStructTy);
+//    Constant* NullStructPtr = Constant::getNullValue(PtrStructTy);
 
     // nullptr
     ConstantPointerNull* NullPTR = ConstantPointerNull::get(PtrStructTy);
@@ -171,12 +171,23 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     for (auto &F : M) {
 
+        // FIXME: too much memmory usage
+
+
     for (auto &BB : F) {
+        if (BB.getName().compare("add") || BB.getName().compare("update"))
+            continue;
+
+        // new blocks
+        BasicBlock *add = BasicBlock::Create(C, "add", &F);
+        BasicBlock *update = BasicBlock::Create(C, "update", &F);
 
         BasicBlock::iterator IP = BB.getFirstInsertionPt();
+
         IRBuilder<> IRB(&(*IP));
 
         if (AFL_R(100) >= inst_ratio) continue;
+
 
         /* Make up cur_loc */
 
@@ -184,28 +195,25 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         ConstantInt *CurLoc = ConstantInt::get(Int32Ty, cur_loc);
 
+
         /* Load prev_loc */
 
         LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
         PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
         Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
 
-
+        // hash of the edge
         Value *MapPtrIdx = IRB.CreateXor(PrevLocCasted, CurLoc);
+
 //      /* Load SHM pointer */
 //
 //      LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
 //      MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 //
-//      // hash of the edge
+
 //      Value *MapPtrIdx =
 //          IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
 
-
-        // FIXME: too much memmory usage
-        // new blocks
-        BasicBlock *add = BasicBlock::Create(C, "add", &F);
-        BasicBlock *update = BasicBlock::Create(C, "update", &F);
 
         // find the edge
         Value *new_edge = IRB.CreateCall(find_edge, MapPtrIdx);
@@ -217,7 +225,6 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         // Insert to the edge hashmap
         addBuilder.CreateCall(add_edge, create_call);
-
 
         /* how do we update edge */
         IRBuilder<> updateBuilder(update);
@@ -232,7 +239,7 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         // new edge -> add
         // seen edge -> update
-        BranchInst *br = IRB.CreateCondBr(cond, update, add);
+        IRB.CreateCondBr(cond, update, add);
 
 
 
@@ -253,6 +260,11 @@ bool AFLCoverage::runOnModule(Module &M) {
         inst_blocks++;
 
     }
+
+//    add = nullptr;
+//    update = nullptr;
+//    delete  add;
+//    delete  update;
 }
   /* Say something nice. */
 
