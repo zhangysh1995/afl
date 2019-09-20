@@ -69,12 +69,24 @@ bool AFLCoverage::runOnModule(Module &M) {
     LLVMContext &C = M.getContext();
 
     IntegerType *Int8Ty = IntegerType::getInt8Ty(C);
-    IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
 
-    PointerType *Ptr32Ty = PointerType::get(Type::getInt32Ty(C), 0);
+    // 64 bit?
+    IntegerType *Int32Ty = IntegerType::getInt64Ty(C);
+    // 64 bit?
+    PointerType *Ptr32Ty = PointerType::get(Type::getInt64Ty(C), 0);
 
-//  Type *FunPtr32Ty = FunctionType::get(PointerType::getInt32PtrTy(C));
+    // the pointer to the struct
+    StructType *StructTy = StructType::get(C);
+    PointerType *PtrStructTy = PointerType::get(StructTy, 0);
+    Constant* NullStructPtr = Constant::getNullValue(PtrStructTy);
+
+    // nullptr
+    ConstantPointerNull* NullPTR = ConstantPointerNull::get(PtrStructTy);
+
     Type *FuncVoidTy = FunctionType::getVoidTy(C);
+
+
+
 
     /* Show a banner */
 
@@ -116,18 +128,18 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     // retrieve the function
     Constant *find_edge = M.getOrInsertFunction("find_edge",
-                                                Ptr32Ty,
+                                                PtrStructTy,
                                                 Int32Ty,
                                                 NULL);
 
     Constant *create_edge = M.getOrInsertFunction("new_edge",
-                                                  Ptr32Ty,
+                                                  PtrStructTy,
                                                   Int32Ty,
                                                   NULL);
 
     Constant *add_edge = M.getOrInsertFunction("add_edge",
                                                FuncVoidTy,
-                                               Int32Ty,
+                                               PtrStructTy,
                                                NULL);
 
     Constant *update_count = M.getOrInsertFunction("update_count",
@@ -212,14 +224,15 @@ bool AFLCoverage::runOnModule(Module &M) {
         // update the count
         updateBuilder.CreateCall(update_count, MapPtrIdx);
 
-
         // Is the edge new?
-        Value *edge_exits = IRB.CreatePtrDiff(new_edge,
-                                              Constant::getNullValue(Ptr32Ty));
+        Value* edge_exits = IRB.CreatePtrDiff(NullPTR, new_edge);
+
+        Value* cond = IRB.CreateICmp(CmpInst::Predicate::ICMP_EQ, edge_exits,
+                ConstantInt::get(IntegerType::getInt64Ty(C), 0));
 
         // new edge -> add
         // seen edge -> update
-        BranchInst *br = IRB.CreateCondBr(edge_exits, add, update);
+        BranchInst *br = IRB.CreateCondBr(cond, update, add);
 
 
 
