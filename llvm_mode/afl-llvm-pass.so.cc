@@ -24,7 +24,6 @@
 
 #define AFL_LLVM_PASS
 
-#include "edge.h"
 #include "../config.h"
 #include "../debug.h"
 
@@ -38,6 +37,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 
@@ -68,21 +69,20 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     LLVMContext &C = M.getContext();
 
-
-    // 64 bit?
+    IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
     IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
-    // 64 bit?
 
     // the pointer to the struct
-    StructType *StructTy = StructType::get(C);
-    PointerType *PtrStructTy = PointerType::get(StructTy, 0);
+//    StructType *StructTy = StructType::get(C);
+
+    // FIXME: we must create pointer to the edge struct
+    StructType *PtrStructTy = StructType::get(C);
+//    PointerType *PtrStructTy = PointerType::get(StructTy, 0);
 
     // nullptr
-    ConstantPointerNull* NullPTR = ConstantPointerNull::get(PtrStructTy);
+//    ConstantPointerNull* NullPTR = ConstantPointerNull::get(PtrStructTy);
 
     Type *FuncVoidTy = FunctionType::getVoidTy(C);
-
-
 
 
     /* Show a banner */
@@ -114,27 +114,43 @@ bool AFLCoverage::runOnModule(Module &M) {
     }
 
     // retrieve the function
-    Constant *find_edge = M.getOrInsertFunction("find_edge",
-                                                PtrStructTy,
-                                                Int32Ty,
-                                                NULL);
+//    Constant *find_edge = M.getOrInsertFunction("find_edge",
+//                                                PtrStructTy,
+//                                                PtrStructTy,
+//                                                Int32Ty,
+//                                                NULL);
+//
+//    Constant *create_edge = M.getOrInsertFunction("new_edge",
+//                                                  PtrStructTy,
+//                                                  Int32Ty,
+//                                                  NULL);
+//
+//    Constant *add_edge = M.getOrInsertFunction("add_edge",
+//                                               FuncVoidTy,
+//                                               PtrStructTy,
+//                                               PtrStructTy,
+//                                               NULL);
+//
+//    Constant *update_count = M.getOrInsertFunction("update_count",
+//                                                   FuncVoidTy,
+//                                                   PtrStructTy,
+//                                                   Int32Ty,
+//                                                   NULL);
 
-    Constant *create_edge = M.getOrInsertFunction("new_edge",
-                                                  PtrStructTy,
-                                                  Int32Ty,
-                                                  NULL);
-
-    Constant *add_edge = M.getOrInsertFunction("add_edge",
-                                               FuncVoidTy,
-                                               PtrStructTy,
-                                               NULL);
-
-    Constant *update_count = M.getOrInsertFunction("update_count",
-                                                   FuncVoidTy,
-                                                   Int32Ty,
-                                                   NULL);
+    Constant *update = M.getOrInsertFunction("checkThenUpdate",
+                                             FuncVoidTy,
+                                             PtrStructTy,
+                                             Int32Ty,
+                                             NULL);
 
 
+    // pointer to map head, passed from `afl-fuzz`
+    // FIXME: type conflict
+    GlobalVariable *AFLMapPtr = new GlobalVariable(
+            M, PtrStructTy, false, GlobalValue::ExternalLinkage, 0, "__afl_map_ptr",
+            0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
+
+    // _prev_
     GlobalVariable *AFLPrevLoc = new GlobalVariable(
             M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc",
             0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
@@ -144,17 +160,22 @@ bool AFLCoverage::runOnModule(Module &M) {
     int inst_blocks = 0;
 
     for (auto &F : M) {
-
-        // FIXME: too much memmory usage
-
-
-    for (auto &BB : F) {
-        if (BB.getName().compare("add") || BB.getName().compare("update"))
+//        // debug
+//        errs() << "Run on function\n" ;
+        if (F.isIntrinsic())
             continue;
 
-        // new blocks
-        BasicBlock *add = BasicBlock::Create(C, "add", &F);
-        BasicBlock *update = BasicBlock::Create(C, "update", &F);
+        // FIXME: we cannot insert same calls
+
+    for (auto &BB : F) {
+//        if (BB.getName().equals("add") || BB.getName().equals("update"))
+//            continue;
+
+//        // FIXME: memory usage
+//        // new blocks
+//        BasicBlock *add = BasicBlock::Create(C, "add", &F);
+//        BasicBlock *update = BasicBlock::Create(C, "update", &F);
+
 
         BasicBlock::iterator IP = BB.getFirstInsertionPt();
 
@@ -176,35 +197,41 @@ bool AFLCoverage::runOnModule(Module &M) {
         PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
         Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
 
-        // hash of the edge
+        // hash of the edg
         Value *MapPtrIdx = IRB.CreateXor(PrevLocCasted, CurLoc);
 
 
-        // find the edge
-        Value *new_edge = IRB.CreateCall(find_edge, MapPtrIdx);
+        /* Load map_ptr */
 
-        /* how do we add edge */
-        IRBuilder<> addBuilder(add);
-        // Create the new edge
-        Value *create_call = addBuilder.CreateCall(create_edge, MapPtrIdx);
+        LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
 
-        // Insert to the edge hashmap
-        addBuilder.CreateCall(add_edge, create_call);
+        IRB.CreateCall(update, {AFLMapPtr, MapPtrIdx});
 
-        /* how do we update edge */
-        IRBuilder<> updateBuilder(update);
-        // update the count
-        updateBuilder.CreateCall(update_count, MapPtrIdx);
-
-        // Is the edge new?
-        Value* edge_exits = IRB.CreatePtrDiff(NullPTR, new_edge);
-
-        Value* cond = IRB.CreateICmp(CmpInst::Predicate::ICMP_EQ, edge_exits,
-                ConstantInt::get(IntegerType::getInt64Ty(C), 0));
-
-        // new edge -> add
-        // seen edge -> update
-        IRB.CreateCondBr(cond, update, add);
+//        // find the edge
+//        Value *new_edge = IRB.CreateCall(find_edge, {AFLMapPtr, MapPtrIdx});
+//
+//        /* how do we add edge */
+//        IRBuilder<> addBuilder(add);
+//        // Create the new edge
+//        Value *create_call = addBuilder.CreateCall(create_edge, {AFLMapPtr, MapPtrIdx});
+//
+//        // Insert to the edge hashmap
+//        addBuilder.CreateCall(add_edge, {AFLMapPtr, create_call});
+//
+//        /* how do we update edge */
+//        IRBuilder<> updateBuilder(update);
+//        // update the count
+//        updateBuilder.CreateCall(update_count, {AFLMapPtr, MapPtrIdx});
+//
+//        // Is the edge new?
+//        Value* edge_exits = IRB.CreatePtrDiff(NullPTR, new_edge);
+//
+//        Value* cond = IRB.CreateICmp(CmpInst::Predicate::ICMP_EQ, edge_exits,
+//                ConstantInt::get(IntegerType::getInt64Ty(C), 0));
+//
+//        // new edge -> add
+//        // seen edge -> update
+//        IRB.CreateCondBr(cond, update, add);
 
 
         /* Set prev_loc to cur_loc >> 1 */
@@ -227,6 +254,7 @@ bool AFLCoverage::runOnModule(Module &M) {
               "ASAN/MSAN" : "non-hardened"), inst_ratio);
 
   }
+
 
   return true;
 

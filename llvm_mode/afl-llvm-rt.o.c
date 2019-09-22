@@ -55,6 +55,10 @@
 //u8* __afl_area_ptr = __afl_area_initial;
 //u32* __afl_area_ptr = map;
 
+struct Edge *map = NULL;
+
+__thread struct Edge *__afl_map_ptr;
+
 __thread u32 __afl_prev_loc;
 
 
@@ -92,6 +96,8 @@ static void __afl_map_shm(void) {
 
 
 // skip this function first
+
+    __afl_map_ptr = map;
 return;
 
 }
@@ -196,7 +202,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
 //      memset(__afl_area_ptr, 0, MAP_SIZE);
 //      __afl_area_ptr[0] = 1;
-      delete_all();
+      delete_all(map);
       __afl_prev_loc = 0;
     }
 
