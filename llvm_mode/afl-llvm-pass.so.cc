@@ -26,6 +26,7 @@
 
 #include "../config.h"
 #include "../debug.h"
+#include "edge.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,9 +54,9 @@ namespace {
 
       bool runOnModule(Module &M) override;
 
-       StringRef getPassName() const override {
-        return "American Fuzzy Lop Instrumentation";
-       }
+//       StringRef getPassName() const override {
+//        return "American Fuzzy Lop Instrumentation";
+//       }
 
   };
 
@@ -76,7 +77,8 @@ bool AFLCoverage::runOnModule(Module &M) {
 //    StructType *StructTy = StructType::get(C);
 
     // FIXME: we must create pointer to the edge struct
-    StructType *PtrStructTy = StructType::get(C);
+    StructType *PtrStructTy = StructType::create(C, "struct.Edge");
+//    StructType *StructTy = StructType::create(C, "struct.Edge");
 //    PointerType *PtrStructTy = PointerType::get(StructTy, 0);
 
     // nullptr
@@ -195,17 +197,20 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         LoadInst *PrevLoc = IRB.CreateLoad(AFLPrevLoc);
         PrevLoc->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-        Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, IRB.getInt32Ty());
+        Value *PrevLocCasted = IRB.CreateZExt(PrevLoc, Int32Ty);
+
+        /* Load SHM pointer */
+
+        LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
+        MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+//        Value *MapPtrIdx =
+//                IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
 
         // hash of the edg
         Value *MapPtrIdx = IRB.CreateXor(PrevLocCasted, CurLoc);
 
 
-        /* Load map_ptr */
-
-        LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
-
-        IRB.CreateCall(update, {AFLMapPtr, MapPtrIdx});
+        IRB.CreateCall(update, {MapPtr, MapPtrIdx});
 
 //        // find the edge
 //        Value *new_edge = IRB.CreateCall(find_edge, {AFLMapPtr, MapPtrIdx});

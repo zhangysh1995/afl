@@ -4,10 +4,11 @@
 
 
 #include "edge.h"
-
+#include <stdio.h>
 // create
-struct Edge *new_edge(int hash) {
-    struct Edge* edge = (struct Edge *)malloc(sizeof(struct Edge));
+struct Edge *new_edge(uint32_t hash) {
+    struct Edge* edge;
+    edge = malloc(sizeof(struct Edge));
     edge->hash = hash;
     edge->count = 1;
 
@@ -20,7 +21,7 @@ void add_edge(struct Edge *head, struct Edge *e) {
 }
 
 // looking up the Edge
-struct Edge *find_edge(struct Edge *head, int hash) {
+struct Edge *find_edge(struct Edge *head, uint32_t hash) {
     struct Edge *e;
 
     HASH_FIND_INT(head, &hash, e);
@@ -28,7 +29,7 @@ struct Edge *find_edge(struct Edge *head, int hash) {
 }
 
 // update count
-void update_count(struct Edge *head, int hash) {
+void update_count(struct Edge *head, uint32_t hash) {
     struct Edge *e = find_edge(head, hash);
     e->count++;
 }
@@ -60,9 +61,16 @@ void delete_all(struct Edge *head) {
 
 // all-in-one
 void checkThenUpdate(struct Edge *head, uint32_t hash) {
-    if( find_edge(head, hash))
+    head = NULL;
+//    printf("checkThenUpdate %ld\n", head);
+//
+//    if (head != NULL) {
+//        printf("  head is not null\n");
+//    }
+
+
+    if(find_edge(head, hash) != NULL)
         update_count(head, hash);
-    else {
+    else
         add_edge(head, new_edge(hash));
-    }
 }
