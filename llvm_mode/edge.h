@@ -8,16 +8,16 @@
 #include "uthash.h"
 
 struct Edge {
-    int hash; // key, the hash of the Edge
+    uint32_t hash; // key, the hash of the Edge
     int count; // value
 
     UT_hash_handle hh;
 };
 
-struct Edge *new_edge(int hash);
+struct Edge *new_edge(uint32_t hash);
 void add_edge(struct Edge *head, struct Edge *e);
-struct Edge *find_edge(struct Edge *head, int hash);
-void update_count(struct Edge *head, int hash);
+struct Edge *find_edge(struct Edge *head, uint32_t hash);
+void update_count(struct Edge *head, uint32_t hash);
 void delete_edge(struct Edge *head, struct Edge *e);
 void delete_all(struct Edge *head);
 void checkThenUpdate(struct Edge *head, uint32_t hash);

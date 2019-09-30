@@ -61,7 +61,7 @@ void delete_all(struct Edge *head) {
 
 // all-in-one
 void checkThenUpdate(struct Edge *head, uint32_t hash) {
-    head = NULL;
+//    head = NULL;
 //    printf("checkThenUpdate %ld\n", head);
 //
 //    if (head != NULL) {

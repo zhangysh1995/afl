@@ -93,8 +93,18 @@ static void __afl_map_shm(void) {
 //  }
 
 
+    // get pointer to map
+    char *id_map = getenv(SHM_ENV_VAR);
+
+    if (id_map) {
+
+        // alias
+        __afl_map_ptr = (struct Edge *) id_map;
+    }
+
 // skip this function first
 //    __afl_map_ptr = NULL;
+
 //add_edge(__afl_map_ptr, new_edge(0));
 
 return;
@@ -200,9 +210,11 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     if (is_persistent) {
 
 //      memset(__afl_area_ptr, 0, MAP_SIZE);
+
 //      __afl_area_ptr[0] = 1;
 //      delete_all(__afl_map_ptr);
-      __afl_prev_loc = 0;
+        __afl_map_ptr = NULL;
+        __afl_prev_loc = 0;
     }
 
     cycle_cnt  = max_cnt;

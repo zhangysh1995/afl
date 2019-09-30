@@ -74,15 +74,9 @@ bool AFLCoverage::runOnModule(Module &M) {
     IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
 
     // the pointer to the struct
-//    StructType *StructTy = StructType::get(C);
-
     // FIXME: we must create pointer to the edge struct
     StructType *PtrStructTy = StructType::create(C, "struct.Edge");
-//    StructType *StructTy = StructType::create(C, "struct.Edge");
-//    PointerType *PtrStructTy = PointerType::get(StructTy, 0);
 
-    // nullptr
-//    ConstantPointerNull* NullPTR = ConstantPointerNull::get(PtrStructTy);
 
     Type *FuncVoidTy = FunctionType::getVoidTy(C);
 
@@ -145,12 +139,10 @@ bool AFLCoverage::runOnModule(Module &M) {
                                              Int32Ty,
                                              NULL);
 
-
     // pointer to map head, passed from `afl-fuzz`
-    // FIXME: type conflict
-    GlobalVariable *AFLMapPtr = new GlobalVariable(
-            M, PtrStructTy, false, GlobalValue::ExternalLinkage, 0, "__afl_map_ptr",
-            0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
+    GlobalVariable *AFLMapPtr =
+            new GlobalVariable(M, PointerType::get(PtrStructTy, 0), false,
+                               GlobalValue::ExternalLinkage, 0, "__afl_map_ptr");
 
     // _prev_
     GlobalVariable *AFLPrevLoc = new GlobalVariable(
@@ -162,22 +154,11 @@ bool AFLCoverage::runOnModule(Module &M) {
     int inst_blocks = 0;
 
     for (auto &F : M) {
-//        // debug
-//        errs() << "Run on function\n" ;
         if (F.isIntrinsic())
             continue;
 
-        // FIXME: we cannot insert same calls
 
     for (auto &BB : F) {
-//        if (BB.getName().equals("add") || BB.getName().equals("update"))
-//            continue;
-
-//        // FIXME: memory usage
-//        // new blocks
-//        BasicBlock *add = BasicBlock::Create(C, "add", &F);
-//        BasicBlock *update = BasicBlock::Create(C, "update", &F);
-
 
         BasicBlock::iterator IP = BB.getFirstInsertionPt();
 
@@ -203,13 +184,11 @@ bool AFLCoverage::runOnModule(Module &M) {
 
         LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
         MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-//        Value *MapPtrIdx =
-//                IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
 
         // hash of the edg
         Value *MapPtrIdx = IRB.CreateXor(PrevLocCasted, CurLoc);
 
-
+        // FIXME: why map pointer is changed???
         IRB.CreateCall(update, {MapPtr, MapPtrIdx});
 
 //        // find the edge
