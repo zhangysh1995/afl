@@ -97,10 +97,10 @@ static void __afl_map_shm(void) {
     char *id_map = getenv(SHM_ENV_VAR);
 
     if (id_map) {
-
+        int map_address = atoi(id_map);
         // alias
-        __afl_map_ptr = (struct Edge *) id_map;
-    }
+        __afl_map_ptr = (struct Edge *) map_address;
+    } else _exit(1);
 
 // skip this function first
 //    __afl_map_ptr = NULL;
