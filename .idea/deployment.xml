@@ -1,4 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" serverName="chcpu12a" />
+  <component name="PublishConfigData" autoUpload="Always" serverName="WSL (3d621a64-c6ae-44fa-89cc-a62ad6565d10)">
+    <serverData>
+      <paths name="WSL (3d621a64-c6ae-44fa-89cc-a62ad6565d10)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/afl" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="chcpu12a (9cce1dfd-c701-44a2-98fe-7adc19487c9d)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="chcpu12i (05b7681a-0577-4813-a61c-2f3fd8e28d32)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+    </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
+  </component>
 </project>

@@ -74,9 +74,8 @@ bool AFLCoverage::runOnModule(Module &M) {
     IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
 
     // the pointer to the struct
-    // FIXME: we must create pointer to the edge struct
     StructType *PtrStructTy = StructType::create(C, "struct.Edge");
-
+    PointerType *PPStructTy = PointerType::get(PtrStructTy, 0);
 
     Type *FuncVoidTy = FunctionType::getVoidTy(C);
 
@@ -135,13 +134,13 @@ bool AFLCoverage::runOnModule(Module &M) {
 
     Constant *update = M.getOrInsertFunction("checkThenUpdate",
                                              FuncVoidTy,
-                                             PtrStructTy,
+                                             PPStructTy,
                                              Int32Ty,
                                              NULL);
 
     // pointer to map head, passed from `afl-fuzz`
     GlobalVariable *AFLMapPtr =
-            new GlobalVariable(M, PointerType::get(PtrStructTy, 0), false,
+            new GlobalVariable(M, PPStructTy, false,
                                GlobalValue::ExternalLinkage, 0, "__afl_map_ptr");
 
     // _prev_
@@ -188,7 +187,7 @@ bool AFLCoverage::runOnModule(Module &M) {
         // hash of the edg
         Value *MapPtrIdx = IRB.CreateXor(PrevLocCasted, CurLoc);
 
-        // FIXME: why map pointer is changed???
+        // update the trace
         IRB.CreateCall(update, {MapPtr, MapPtrIdx});
 
 //        // find the edge

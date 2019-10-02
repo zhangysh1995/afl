@@ -33,7 +33,7 @@ ifdef AFL_TRACE_PC
 endif
 
 CXXFLAGS    ?= -O3 -funroll-loops
-CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
+CXXFLAGS    += -Wno-unknown-warning-option -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
                -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
 
 CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fpic $(CXXFLAGS)
@@ -60,15 +60,15 @@ else
   PROGS      = ../afl-clang-fast ../afl-llvm-rt.o ../afl-llvm-rt-32.o ../afl-llvm-rt-64.o
 endif
 
-all: hashtb test_deps $(PROGS) test_build all_done
+
+
+all: edge test_deps $(PROGS) test_build all_done
+
 
 #### compile the library
 
-hashtb: edge.c
-	clang -c edge.c -o edge.o
-
-
-#### Check dependency
+edge: edge.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 test_deps:
 ifndef AFL_TRACE_PC
