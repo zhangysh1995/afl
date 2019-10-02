@@ -1366,12 +1366,15 @@ EXP_ST void setup_shm(void) {
 
 //  shm_str = alloc_printf("%d", shm_id);
 
+    char map_buf[sizeof(map_ptr)];
+    snprintf(map_buf, sizeof(map_buf), "%d", &map_ptr);
+
 //  /* If somebody is asking us to fuzz instrumented binaries in dumb mode,
 //     we don't want them to detect instrumentation, since we won't be sending
 //     fork server commands. This should be replaced with better auto-detection
 //     later on, perhaps? */
 //
-  if (!dumb_mode) setenv(SHM_ENV_VAR, &map_ptr, 1);
+  if (!dumb_mode) setenv(SHM_ENV_VAR, map_buf, 1);
 
 //  ck_free(shm_str);
 
