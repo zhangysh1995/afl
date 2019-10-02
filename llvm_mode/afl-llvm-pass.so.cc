@@ -190,6 +190,7 @@ bool AFLCoverage::runOnModule(Module &M) {
         // update the trace
         IRB.CreateCall(update, {MapPtr, MapPtrIdx});
 
+
 //        // find the edge
 //        Value *new_edge = IRB.CreateCall(find_edge, {AFLMapPtr, MapPtrIdx});
 //

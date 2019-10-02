@@ -100,7 +100,8 @@ static void __afl_map_shm(void) {
         int map_address = atoi(id_map);
         // alias
         __afl_map_ptr = (struct Edge *) map_address;
-    } else _exit(1);
+    }
+//    else _exit(1);
 
 // skip this function first
 //    __afl_map_ptr = NULL;

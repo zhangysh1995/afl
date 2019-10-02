@@ -33,13 +33,15 @@ ifdef AFL_TRACE_PC
 endif
 
 CXXFLAGS    ?= -O3 -funroll-loops
-CXXFLAGS    += -Wno-unknown-warning-option -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
+#CXXFLAGS    += -Wno-unknown-warning-option -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
+#               -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
+CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
                -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
 
 CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fpic $(CXXFLAGS)
 CLANG_LFL    = `$(LLVM_CONFIG) --ldflags` $(LDFLAGS)
 
-# User teor2345 reports that this is required to make things work on MacOS X.
+# User teor2345 reports that this is required to make thingcds work on MacOS X.
 
 ifeq "$(shell uname)" "Darwin"
   CLANG_LFL += -Wl,-flat_namespace -Wl,-undefined,suppress
@@ -62,13 +64,13 @@ endif
 
 
 
-all: edge test_deps $(PROGS) test_build all_done
+all: test_deps $(PROGS) test_build all_done
 
 
 #### compile the library
 
-edge: edge.c
-	$(CC) $(CFLAGS) -c $< -o $@
+#edge: edge.c
+#	$(CC) $(CFLAGS) -c $< -o $@
 
 test_deps:
 ifndef AFL_TRACE_PC
