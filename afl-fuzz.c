@@ -145,6 +145,7 @@ EXP_ST u8  virgin_bits[MAP_SIZE],     /* Regions yet untouched by fuzzing */
 
 EXP_ST struct Edge *trace_bits;
 
+struct Edge *map_ptr;
 
 static u8  var_bytes[MAP_SIZE];       /* Bytes that appear to be variable */
 
@@ -1248,8 +1249,8 @@ static void update_bitmap_score(struct queue_entry* q) {
      and how it compares to us. */
 
   for (i = 0; i < MAP_SIZE; i++)
-
-    if (trace_bits[i]) {
+    // find if edge exercised
+    if (find_edge(map_ptr, i)) {
 
        if (top_rated[i]) {
 
@@ -1345,14 +1346,13 @@ static void cull_queue(void) {
 
 /* Configure shared memory and virgin_bits. This is called at startup. */
 
-struct Edge *map_ptr;
 
 /* Set up and pass the map_ptr to the target program*/
 
 EXP_ST void setup_shm(void) {
 //  u8* shm_str;
 
-  if (!in_bitmap)  map_ptr = NULL;
+  if (!in_bitmap)  trace_bits = NULL;
 //    memset(virgin_bits, 255, MAP_SIZE);
 
   memset(virgin_tmout, 255, MAP_SIZE);
@@ -1366,7 +1366,10 @@ EXP_ST void setup_shm(void) {
 
 //  shm_str = alloc_printf("%d", shm_id);
 
-    char map_buf[sizeof(map_ptr)];
+    /*
+     * Get address of the pointer and pass to the target program
+     */
+    char map_buf[sizeof(trace_bits)];
     snprintf(map_buf, sizeof(map_buf), "%d", &map_ptr);
 
 //  /* If somebody is asking us to fuzz instrumented binaries in dumb mode,
@@ -1377,9 +1380,9 @@ EXP_ST void setup_shm(void) {
   if (!dumb_mode) setenv(SHM_ENV_VAR, map_buf, 1);
 
 //  ck_free(shm_str);
-
 //  trace_bits = shmat(shm_id, NULL, 0);
-  trace_bits = map_ptr;
+
+//  trace_bits = NULL;
   
   if (!trace_bits) PFATAL("shmat() failed");
 
@@ -2545,7 +2548,8 @@ static void show_stats(void);
 static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
                          u32 handicap, u8 from_queue) {
 
-  static u8 first_trace[MAP_SIZE];
+//  static u8 first_trace[MAP_SIZE];
+  static struct Edge *first_trace;
 
   u8  fault = 0, new_bits = 0, var_detected = 0,
       first_run = (q->exec_cksum == 0);
@@ -2575,7 +2579,8 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
   if (dumb_mode != 1 && !no_forkserver && !forksrv_pid)
     init_forkserver(argv);
 
-  if (q->exec_cksum) memcpy(first_trace, trace_bits, MAP_SIZE);
+//  if (q->exec_cksum) memcpy(first_trace, trace_bits, MAP_SIZE);
+  if (q->exec_cksum) memcpy(first_trace, trace_bits, sizeof(trace_bits));
 
   start_us = get_cur_time_us();
 
@@ -2610,9 +2615,10 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
 
         u32 i;
 
-        for (i = 0; i < MAP_SIZE; i++) {
-
-          if (!var_bytes[i] && first_trace[i] != trace_bits[i]) {
+        // check for variable
+        struct Edge *s;
+        for (s = trace_bits; s != NULL; s = s->hh.next) {
+          if (!var_bytes[s->hash] &&  s->count != find_edge(trace_bits, s->hash)->count) {
 
             var_bytes[i] = 1;
             stage_max    = CAL_CYCLES_LONG;
@@ -2626,7 +2632,7 @@ static u8 calibrate_case(char** argv, struct queue_entry* q, u8* use_mem,
       } else {
 
         q->exec_cksum = cksum;
-        memcpy(first_trace, trace_bits, MAP_SIZE);
+        memcpy(first_trace, trace_bits, sizeof(trace_bits));
 
       }
 
@@ -2693,12 +2699,24 @@ abort_calibration:
 
 static void check_map_coverage(void) {
 
-  u32 i;
+//  u32 i;
+//
+//  if (count_bytes(trace_bits) < 100) return;
+//
+//  for (i = (1 << (MAP_SIZE_POW2 - 1)); i < MAP_SIZE; i++)
+//    if (trace_bits[i]) return;
 
-  if (count_bytes(trace_bits) < 100) return;
+  struct Edge *s;
 
-  for (i = (1 << (MAP_SIZE_POW2 - 1)); i < MAP_SIZE; i++)
-    if (trace_bits[i]) return;
+  int i = 0;
+  for (s = map_ptr; s != NULL; s = s->hh.next) i ++;
+
+  if (i <= 0) {
+    WARNF("We have problem with tracing, please check");
+    exit(1);
+  }
+
+  return;
 
   WARNF("Recompile binary with newer version of afl to improve coverage!");
 
@@ -7964,15 +7982,15 @@ int main(int argc, char** argv) {
 
   check_crash_handling();
   check_cpu_governor();
-
   setup_post();
-  setup_shm();
-  init_count_class16();
 
+  // modified
+  setup_shm();
+
+  init_count_class16();
   setup_dirs_fds();
   read_testcases();
   load_auto();
-
   pivot_inputs();
 
   if (extras_dir) load_extras(extras_dir);
