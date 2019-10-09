@@ -37,6 +37,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
 
@@ -93,8 +94,19 @@ bool AFLCoverage::runOnModule(Module &M) {
 
   }
 
+
+  Constant *UpdateShared = M.getOrInsertFunction("_update_table",
+                                           FunctionType::getVoidTy(C),
+                                           Int32Ty,
+                                           Int32Ty,
+                                           NULL);
+
   /* Get globals for the SHM region and the previous location. Note that
      __afl_prev_loc is thread-local. */
+
+  /**
+   * Here we handle hit counts and coverage separately
+   */
 
   GlobalVariable *AFLMapPtr =
       new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
@@ -104,13 +116,23 @@ bool AFLCoverage::runOnModule(Module &M) {
       M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc",
       0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
 
+  // SHM region to the covered edge
+  GlobalVariable *EdgeCovPtr =
+          new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
+                             GlobalValue::ExternalLinkage, 0, "__afl_edge_ptr");
+
+  // marker of the last new edge covered
+  GlobalVariable *EdgeCovMarker = new GlobalVariable(
+          M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_edge_loc",
+          0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
+
   /* Instrument all the things! */
 
   int inst_blocks = 0;
 
-  for (auto &F : M)
-    for (auto &BB : F) {
+  for (auto &F : M) {
 
+    for (auto &BB : F) {
       BasicBlock::iterator IP = BB.getFirstInsertionPt();
       IRBuilder<> IRB(&(*IP));
 
@@ -130,10 +152,10 @@ bool AFLCoverage::runOnModule(Module &M) {
 
       /* Load SHM pointer */
 
+      Value *edge = IRB.CreateXor(PrevLocCasted, CurLoc);
       LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
       MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      Value *MapPtrIdx =
-          IRB.CreateGEP(MapPtr, IRB.CreateXor(PrevLocCasted, CurLoc));
+      Value *MapPtrIdx = IRB.CreateGEP(MapPtr, edge);
 
       /* Update bitmap */
 
@@ -141,18 +163,32 @@ bool AFLCoverage::runOnModule(Module &M) {
       Counter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
       Value *Incr = IRB.CreateAdd(Counter, ConstantInt::get(Int8Ty, 1));
       IRB.CreateStore(Incr, MapPtrIdx)
-          ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+              ->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
       /* Set prev_loc to cur_loc >> 1 */
 
       StoreInst *Store =
-          IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
+              IRB.CreateStore(ConstantInt::get(Int32Ty, cur_loc >> 1), AFLPrevLoc);
       Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+
+      /* Load Edge Cov SHM pointer */
+
+      LoadInst *CovPtr = IRB.CreateLoad(EdgeCovPtr);
+      CovPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+
+      /* Load edge_loc */
+      LoadInst *EdgeCounter = IRB.CreateLoad(EdgeCovMarker);
+      EdgeCounter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+      Value *EdgeCounterCasted = IRB.CreateZExt(EdgeCounter, IRB.getInt32Ty());
+
+      // we insert here
+      IRB.CreateCall(UpdateShared, edge);
 
       inst_blocks++;
 
     }
-
+  }
   /* Say something nice. */
 
   if (!be_quiet) {

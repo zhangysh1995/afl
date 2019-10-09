@@ -52,8 +52,12 @@
 u8  __afl_area_initial[MAP_SIZE];
 u8* __afl_area_ptr = __afl_area_initial;
 
-__thread u32 __afl_prev_loc;
+u8 __afl_edge_initial[MAP_SIZE];
+u8* __afl_edge_ptr = __afl_edge_initial;
 
+
+__thread u32 __afl_prev_loc;
+__thread u32 __afl_edge_loc;
 
 /* Running in persistent mode? */
 
@@ -62,23 +66,32 @@ static u8 is_persistent;
 
 /* SHM setup. */
 
+void _update_table(u32 edge, u32 marker) {
+  if (__afl_area_ptr[edge] == 0)
+    __afl_edge_ptr[__afl_edge_loc++] = edge;
+}
+
 static void __afl_map_shm(void) {
 
   u8 *id_str = getenv(SHM_ENV_VAR);
+  u8 *id_str_ = getenv(SHM_ENV_VAR_);
 
   /* If we're running under AFL, attach to the appropriate region, replacing the
      early-stage __afl_area_initial region that is needed to allow some really
      hacky .init code to work correctly in projects such as OpenSSL. */
 
-  if (id_str) {
+  if (id_str && id_str_) {
 
     u32 shm_id = atoi(id_str);
+    u32 shm_id_ = atoi(id_str_);
 
     __afl_area_ptr = shmat(shm_id, NULL, 0);
+    __afl_edge_ptr = shmat(shm_id_, NULL, 0);
 
     /* Whooooops. */
 
     if (__afl_area_ptr == (void *)-1) _exit(1);
+    if (__afl_edge_ptr == (void *)-1) _exit(1);
 
     /* Write something into the bitmap so that even with low AFL_INST_RATIO,
        our parent doesn't give up on us. */
@@ -188,8 +201,10 @@ int __afl_persistent_loop(unsigned int max_cnt) {
     if (is_persistent) {
 
       memset(__afl_area_ptr, 0, MAP_SIZE);
+      memset(__afl_edge_ptr, 0, MAP_SIZE);
       __afl_area_ptr[0] = 1;
       __afl_prev_loc = 0;
+      __afl_edge_loc = 0;
     }
 
     cycle_cnt  = max_cnt;
@@ -206,6 +221,7 @@ int __afl_persistent_loop(unsigned int max_cnt) {
 
       __afl_area_ptr[0] = 1;
       __afl_prev_loc = 0;
+      __afl_edge_loc = 0;
 
       return 1;
 
@@ -216,6 +232,9 @@ int __afl_persistent_loop(unsigned int max_cnt) {
          dummy output region. */
 
       __afl_area_ptr = __afl_area_initial;
+
+      // set back the edge pointer
+      __afl_edge_ptr = __afl_edge_initial;
 
     }
 

@@ -25,7 +25,7 @@ VERSION     = $(shell grep '^\#define VERSION ' ../config.h | cut -d '"' -f2)
 LLVM_CONFIG ?= llvm-config
 
 CFLAGS      ?= -O3 -funroll-loops
-CFLAGS      += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
+CFLAGS      += -Wno-unknown-warning-option -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
                -DAFL_PATH=\"$(HELPER_PATH)\" -DBIN_PATH=\"$(BIN_PATH)\" \
                -DVERSION=\"$(VERSION)\" 
 ifdef AFL_TRACE_PC
@@ -33,7 +33,7 @@ ifdef AFL_TRACE_PC
 endif
 
 CXXFLAGS    ?= -O3 -funroll-loops
-CXXFLAGS    += -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
+CXXFLAGS    += -Wno-unknown-warning-option -Wall -D_FORTIFY_SOURCE=2 -g -Wno-pointer-sign \
                -DVERSION=\"$(VERSION)\" -Wno-variadic-macros
 
 CLANG_CFL    = `$(LLVM_CONFIG) --cxxflags` -fno-rtti -fpic $(CXXFLAGS)
@@ -98,7 +98,7 @@ test_build: $(PROGS)
 	unset AFL_USE_ASAN AFL_USE_MSAN AFL_INST_RATIO; AFL_QUIET=1 AFL_PATH=. AFL_CC=$(CC) ../afl-clang-fast $(CFLAGS) ../test-instr.c -o test-instr $(LDFLAGS)
 	echo 0 | ../afl-showmap -m none -q -o .test-instr0 ./test-instr
 	echo 1 | ../afl-showmap -m none -q -o .test-instr1 ./test-instr
-	@rm -f test-instr
+#	@rm -f test-instr
 	@cmp -s .test-instr0 .test-instr1; DR="$$?"; rm -f .test-instr0 .test-instr1; if [ "$$DR" = "0" ]; then echo; echo "Oops, the instrumentation does not seem to be behaving correctly!"; echo; echo "Please ping <lcamtuf@google.com> to troubleshoot the issue."; echo; exit 1; fi
 	@echo "[+] All right, the instrumentation seems to be working!"
 

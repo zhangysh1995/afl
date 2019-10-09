@@ -135,6 +135,7 @@ static s32 forksrv_pid,               /* PID of the fork server           */
            out_dir_fd = -1;           /* FD of the lock file              */
 
 EXP_ST u8* trace_bits;                /* SHM with instrumentation bitmap  */
+EXP_ST u32* edge_bits;                /* SHM with covered edge */
 
 EXP_ST u8  virgin_bits[MAP_SIZE],     /* Regions yet untouched by fuzzing */
            virgin_tmout[MAP_SIZE],    /* Bits we haven't seen in tmouts   */
@@ -143,6 +144,7 @@ EXP_ST u8  virgin_bits[MAP_SIZE],     /* Regions yet untouched by fuzzing */
 static u8  var_bytes[MAP_SIZE];       /* Bytes that appear to be variable */
 
 static s32 shm_id;                    /* ID of the SHM region             */
+static s32 shm_id_;
 
 static volatile u8 stop_soon,         /* Ctrl-C pressed?                  */
                    clear_screen = 1,  /* Window resized?                  */
@@ -1201,6 +1203,7 @@ static inline void classify_counts(u32* mem) {
 static void remove_shm(void) {
 
   shmctl(shm_id, IPC_RMID, NULL);
+  shmctl(shm_id_, IPC_RMID, NULL);
 
 }
 
@@ -1339,9 +1342,12 @@ static void cull_queue(void) {
 
 /* Configure shared memory and virgin_bits. This is called at startup. */
 
+// we modified this to quickly access the covered edges
 EXP_ST void setup_shm(void) {
 
   u8* shm_str;
+  // the memory lists covered edges
+  u8* shm_str_new;
 
   if (!in_bitmap) memset(virgin_bits, 255, MAP_SIZE);
 
@@ -1349,25 +1355,34 @@ EXP_ST void setup_shm(void) {
   memset(virgin_crash, 255, MAP_SIZE);
 
   shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
+  shm_id_ = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
 
   if (shm_id < 0) PFATAL("shmget() failed");
+  if (shm_id_ < 0) PFATAL("shmget() 2 failed ");
 
   atexit(remove_shm);
 
   shm_str = alloc_printf("%d", shm_id);
+  shm_str_new = alloc_printf("%d", shm_id_);
 
   /* If somebody is asking us to fuzz instrumented binaries in dumb mode,
      we don't want them to detect instrumentation, since we won't be sending
      fork server commands. This should be replaced with better auto-detection
      later on, perhaps? */
 
-  if (!dumb_mode) setenv(SHM_ENV_VAR, shm_str, 1);
+  if (!dumb_mode) {
+    setenv(SHM_ENV_VAR, shm_str, 1);
+    setenv(SHM_ENV_VAR_, shm_str_new, 1);
+  }
 
   ck_free(shm_str);
+  ck_free(shm_str_new);
 
   trace_bits = shmat(shm_id, NULL, 0);
-  
+  edge_bits = shmat(shm_id_, NULL, 0);
+
   if (!trace_bits) PFATAL("shmat() failed");
+  if (!edge_bits) PFATAL("shmat() 2 failed");
 
 }
 
@@ -6902,7 +6917,8 @@ EXP_ST void check_binary(u8* fname) {
 #endif /* ^!__APPLE__ */
 
   if (!qemu_mode && !dumb_mode &&
-      !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
+      !memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1) &&
+      !memmem(f_data, f_len, SHM_ENV_VAR_, strlen(SHM_ENV_VAR_) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
          "Looks like the target binary is not instrumented! The fuzzer depends on\n"
@@ -6922,7 +6938,8 @@ EXP_ST void check_binary(u8* fname) {
   }
 
   if (qemu_mode &&
-      memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1)) {
+      memmem(f_data, f_len, SHM_ENV_VAR, strlen(SHM_ENV_VAR) + 1) &&
+      memmem(f_data, f_len, SHM_ENV_VAR_, strlen(SHM_ENV_VAR_) + 1)) {
 
     SAYF("\n" cLRD "[-] " cRST
          "This program appears to be instrumented with afl-gcc, but is being run in\n"
