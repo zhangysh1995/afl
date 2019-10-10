@@ -21,6 +21,7 @@
 
 #include "../config.h"
 #include "../types.h"
+#include "../debug.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,9 +67,17 @@ static u8 is_persistent;
 
 /* SHM setup. */
 
-void _update_table(u32 edge, u32 marker) {
-  if (__afl_area_ptr[edge] == 0)
-    __afl_edge_ptr[__afl_edge_loc++] = edge;
+void _update_table(u32 edge) {
+  if (__afl_area_ptr[edge] == 0) {
+    __afl_edge_ptr[__afl_edge_loc] = edge;
+    __afl_edge_loc += 1;
+
+    for (int i = 0; i <= 100; i++) {
+      SAYF("Edge: %u", __afl_edge_ptr[i]);
+    }
+
+    WARNF("We update edges! %u", __afl_edge_loc);
+  }
 }
 
 static void __afl_map_shm(void) {
@@ -79,6 +88,8 @@ static void __afl_map_shm(void) {
   /* If we're running under AFL, attach to the appropriate region, replacing the
      early-stage __afl_area_initial region that is needed to allow some really
      hacky .init code to work correctly in projects such as OpenSSL. */
+
+  ACTF("We get environment variable");
 
   if (id_str && id_str_) {
 
@@ -95,6 +106,7 @@ static void __afl_map_shm(void) {
 
     /* Write something into the bitmap so that even with low AFL_INST_RATIO,
        our parent doesn't give up on us. */
+    ACTF("We set pointer");
 
     __afl_area_ptr[0] = 1;
 

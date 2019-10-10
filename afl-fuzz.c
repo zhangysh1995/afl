@@ -881,70 +881,132 @@ static inline u8 has_new_bits(u8* virgin_map) {
 
 #ifdef __x86_64__
 
-  u64* current = (u64*)trace_bits;
-  u64* virgin  = (u64*)virgin_map;
+  u64* current = (u64*) trace_bits;
+  u64* virgin  = (u64*) virgin_map;
+  u64* marker = (u64*) edge_bits;
 
-  u32  i = (MAP_SIZE >> 3);
+//  u32  i = (MAP_SIZE >> 3);
 
 #else
 
-  u32* current = (u32*)trace_bits;
-  u32* virgin  = (u32*)virgin_map;
+  u32 *current = (u32*) trace_bits;
+  u32 *virgin = (u32*) virgin_map;
+  u32 *marker = (u32*) edge_bits;
 
-  u32  i = (MAP_SIZE >> 2);
+//  u32 i = (MAP_SIZE >> 2);
 
 #endif /* ^__x86_64__ */
 
-  u8   ret = 0;
+  u8 ret = 0;
 
-  while (i--) {
+  for (int i = 0; i <= 100; i++) {
+    SAYF("Edge: %u", edge_bits[i]);
+  }
 
-    /* Optimize for (*current & *virgin) == 0 - i.e., no bits in current bitmap
-       that have not been already cleared from the virgin map - since this will
-       almost always be the case. */
+  for (int i = 0; i <= 100; i++) {
+    SAYF("Edge: %u", trace_bits[i]);
+  }
 
-    if (unlikely(*current) && unlikely(*current & *virgin)) {
+  while (1) {
+    u32 hash = *marker;
 
-      if (likely(ret < 2)) {
+//#ifdef  __x86_64__
+//    u64* virgin_ = (u64*) virgin[hash];
+//    u64* current_ = (u64*) current[hash];
+//#else
+//    u32* virgin_ = (u32*) virgin[hash];
+//    u32* current_ = (u32*) current[hash];
+//#endif
 
-        u8* cur = (u8*)current;
-        u8* vir = (u8*)virgin;
+//    u8 *cur = (u8 *) current_;
+    u8 *cur = (u8 *) current + hash;
+//    u8 *vir = (u8 *) virgin_;
+    u8 *vir = (u8 *) virgin + hash;
 
-        /* Looks like we have not found any new bytes yet; see if any non-zero
-           bytes in current[] are pristine in virgin[]. */
+    ACTF("Checking edge %u", hash);
+    ACTF("Checking hits %u", *cur);
+    ACTF("Checking virgin %u", *vir);
+
+
+    if (hash != 0) {
 
 #ifdef __x86_64__
 
-        if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
-            (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff) ||
-            (cur[4] && vir[4] == 0xff) || (cur[5] && vir[5] == 0xff) ||
-            (cur[6] && vir[6] == 0xff) || (cur[7] && vir[7] == 0xff)) ret = 2;
-        else ret = 1;
+      if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
+           (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff) ||
+           (cur[4] && vir[4] == 0xff) || (cur[5] && vir[5] == 0xff) ||
+           (cur[6] && vir[6] == 0xff) || (cur[7] && vir[7] == 0xff)) ret = 2;
+       else ret = 1;
 
 #else
 
-        if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
-            (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff)) ret = 2;
-        else ret = 1;
+      if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
+          (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff)) ret = 2;
+      else ret = 1;
 
 #endif /* ^__x86_64__ */
 
-      }
+      // update hit counts
+      *(virgin) &= ~*current;
 
-      *virgin &= ~*current;
+    } else break;  // the end of covered edges
 
-    }
-
-    current++;
-    virgin++;
-
+    // iterate the covered edge
+    marker++;
   }
 
   if (ret && virgin_map == virgin_bits) bitmap_changed = 1;
 
   return ret;
-
 }
+//
+//  while (i--) {
+//
+//    /* Optimize for (*current & *virgin) == 0 - i.e., no bits in current bitmap
+//       that have not been already cleared from the virgin map - since this will
+//       almost always be the case. */
+//
+//    if (unlikely(*current) && unlikely(*current & *virgin)) {
+//
+//      if (likely(ret < 2)) {
+//
+//        u8* cur = (u8*)current;
+//        u8* vir = (u8*)virgin;
+//
+//        /* Looks like we have not found any new bytes yet; see if any non-zero
+//           bytes in current[] are pristine in virgin[]. */
+//
+//#ifdef __x86_64__
+//
+//        if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
+//            (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff) ||
+//            (cur[4] && vir[4] == 0xff) || (cur[5] && vir[5] == 0xff) ||
+//            (cur[6] && vir[6] == 0xff) || (cur[7] && vir[7] == 0xff)) ret = 2;
+//        else ret = 1;
+//
+//#else
+//
+//        if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
+//            (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff)) ret = 2;
+//        else ret = 1;
+//
+//#endif /* ^__x86_64__ */
+//
+//      }
+//
+//      *virgin &= ~*current;
+//
+//    }
+//
+//    current++;
+//    virgin++;
+//
+//  }
+//
+//  if (ret && virgin_map == virgin_bits) bitmap_changed = 1;
+//
+//  return ret;
+
 
 
 /* Count the number of bits set in the provided bitmap. Used for the status
@@ -2288,6 +2350,7 @@ static u8 run_target(char** argv, u32 timeout) {
      territory. */
 
   memset(trace_bits, 0, MAP_SIZE);
+  memset(edge_bits, 0, MAP_SIZE);
   MEM_BARRIER();
 
   /* If we're running in "dumb" mode, we can't rely on the fork server
