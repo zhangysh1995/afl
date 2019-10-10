@@ -62,6 +62,7 @@
 /* This is equivalent to afl-as.h: */
 
 static unsigned char *afl_area_ptr;
+static unsigned char *afl_edge_ptr;
 
 /* Exported variables populated by the code patched into elfload.c: */
 
@@ -109,9 +110,10 @@ static inline TranslationBlock *tb_find(CPUState*, TranslationBlock*, int);
 static void afl_setup(void) {
 
   char *id_str = getenv(SHM_ENV_VAR),
+       *id_str_ = getenv(SHM_ENV_VAR_),
        *inst_r = getenv("AFL_INST_RATIO");
 
-  int shm_id;
+  int shm_id, shm_id_;
 
   if (inst_r) {
 
@@ -126,12 +128,17 @@ static void afl_setup(void) {
 
   }
 
-  if (id_str) {
+  if (id_str && id_str_) {
 
     shm_id = atoi(id_str);
+    shm_id_ = atoi(id_str_);
+
+
     afl_area_ptr = shmat(shm_id, NULL, 0);
+    afl_edge_ptr = shmat(shm_id_, NULL, 0);
 
     if (afl_area_ptr == (void*)-1) exit(1);
+    if (afl_edge_ptr == (void*)-1) exit(1);
 
     /* With AFL_INST_RATIO set to a low value, we want to touch the bitmap
        so that the parent doesn't give up on us. */

@@ -116,15 +116,15 @@ bool AFLCoverage::runOnModule(Module &M) {
       M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_prev_loc",
       0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
 
-  // SHM region to the covered edge
-  GlobalVariable *EdgeCovPtr =
-          new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
-                             GlobalValue::ExternalLinkage, 0, "__afl_edge_ptr");
-
-  // marker of the last new edge covered
-  GlobalVariable *EdgeCovMarker = new GlobalVariable(
-          M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_edge_loc",
-          0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
+//  // SHM region to the covered edge
+//  GlobalVariable *EdgeCovPtr =
+//          new GlobalVariable(M, PointerType::get(Int8Ty, 0), false,
+//                             GlobalValue::ExternalLinkage, 0, "__afl_edge_ptr");
+//
+//  // marker of the last new edge covered
+//  GlobalVariable *EdgeCovMarker = new GlobalVariable(
+//          M, Int32Ty, false, GlobalValue::ExternalLinkage, 0, "__afl_edge_loc",
+//          0, GlobalVariable::GeneralDynamicTLSModel, 0, false);
 
   /* Instrument all the things! */
 
@@ -172,15 +172,15 @@ bool AFLCoverage::runOnModule(Module &M) {
       Store->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 
 
-      /* Load Edge Cov SHM pointer */
-
-      LoadInst *CovPtr = IRB.CreateLoad(EdgeCovPtr);
-      CovPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-
-      /* Load edge_loc */
-      LoadInst *EdgeCounter = IRB.CreateLoad(EdgeCovMarker);
-      EdgeCounter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
-      Value *EdgeCounterCasted = IRB.CreateZExt(EdgeCounter, IRB.getInt32Ty());
+//      /* Load Edge Cov SHM pointer */
+//
+//      LoadInst *CovPtr = IRB.CreateLoad(EdgeCovPtr);
+//      CovPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+//
+//      /* Load edge_loc */
+//      LoadInst *EdgeCounter = IRB.CreateLoad(EdgeCovMarker);
+//      EdgeCounter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
+//      Value *EdgeCounterCasted = IRB.CreateZExt(EdgeCounter, IRB.getInt32Ty());
 
       // we insert here
       IRB.CreateCall(UpdateShared, edge);

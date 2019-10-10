@@ -48,6 +48,7 @@
 static s32 child_pid;                 /* PID of the tested program         */
 
 static u8* trace_bits;                /* SHM with instrumentation bitmap   */
+static u32* edge_bits;
 
 static u8 *in_file,                   /* Analyzer input test case          */
           *prog_in,                   /* Targeted program input file       */
@@ -64,7 +65,7 @@ static u32 in_len,                    /* Input data length                 */
 
 static u64 mem_limit = MEM_LIMIT;     /* Memory limit (MB)                 */
 
-static s32 shm_id,                    /* ID of the SHM region              */
+static s32 shm_id, shm_id_,                  /* ID of the SHM region              */
            dev_null_fd = -1;          /* FD to /dev/null                   */
 
 static u8  edges_only,                /* Ignore hit counts?                */
@@ -153,25 +154,54 @@ static void remove_shm(void) {
 
 /* Configure shared memory. */
 
-static void setup_shm(void) {
+//static void setup_shm(void) {
+//
+//  u8* shm_str;
+//
+//  shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
+//
+//  if (shm_id < 0) PFATAL("shmget() failed");
+//
+//  atexit(remove_shm);
+//
+//  shm_str = alloc_printf("%d", shm_id);
+//
+//  setenv(SHM_ENV_VAR, shm_str, 1);
+//
+//  ck_free(shm_str);
+//
+//  trace_bits = shmat(shm_id, NULL, 0);
+//
+//  if (!trace_bits) PFATAL("shmat() failed");
+//
+//}
 
+static void setup_shm(void) {
   u8* shm_str;
+  u8* shm_str_;
 
   shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
+  shm_id_ = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
 
   if (shm_id < 0) PFATAL("shmget() failed");
+  if (shm_id_ < 0) PFATAL("shmget() failed");
 
   atexit(remove_shm);
 
   shm_str = alloc_printf("%d", shm_id);
+  shm_str_ = alloc_printf("%d", shm_id_);
 
   setenv(SHM_ENV_VAR, shm_str, 1);
+  setenv(SHM_ENV_VAR_, shm_str_, 1);
 
   ck_free(shm_str);
+  ck_free(shm_str_);
 
   trace_bits = shmat(shm_id, NULL, 0);
-  
+  edge_bits = shmat(shm_id_, NULL, 0);
+
   if (!trace_bits) PFATAL("shmat() failed");
+  if (!edge_bits) PFATAL("shmat() 2 failed");
 
 }
 
