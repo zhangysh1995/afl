@@ -879,11 +879,11 @@ EXP_ST void read_bitmap(u8* fname) {
 
 static inline u8 has_new_bits(u8* virgin_map) {
 
-#ifdef __x86_64__
+/*#ifdef __x86_64__
 
   u64* current = (u64*) trace_bits;
   u64* virgin  = (u64*) virgin_map;
-  u64* marker = (u64*) edge_bits;
+  u32* marker = (u32*) edge_bits;
 
 //  u32  i = (MAP_SIZE >> 3);
 
@@ -895,64 +895,58 @@ static inline u8 has_new_bits(u8* virgin_map) {
 
 //  u32 i = (MAP_SIZE >> 2);
 
-#endif /* ^__x86_64__ */
+#endif *//* ^__x86_64__ */
 
   u8 ret = 0;
 
-  for (int i = 0; i <= 100; i++) {
-    SAYF("Edge: %u", edge_bits[i]);
-  }
-
-  for (int i = 0; i <= 100; i++) {
-    SAYF("Edge: %u", trace_bits[i]);
-  }
-
-  while (1) {
-    u32 hash = *marker;
-
-//#ifdef  __x86_64__
-//    u64* virgin_ = (u64*) virgin[hash];
-//    u64* current_ = (u64*) current[hash];
-//#else
-//    u32* virgin_ = (u32*) virgin[hash];
-//    u32* current_ = (u32*) current[hash];
-//#endif
-
-//    u8 *cur = (u8 *) current_;
-    u8 *cur = (u8 *) current + hash;
-//    u8 *vir = (u8 *) virgin_;
-    u8 *vir = (u8 *) virgin + hash;
-
-    ACTF("Checking edge %u", hash);
-    ACTF("Checking hits %u", *cur);
-    ACTF("Checking virgin %u", *vir);
+//  for (u32 i = 0; i <= 10; i++) {
+//    SAYF("\nEdge: %u", edge_bits[i]);
+//  }
+//
+//  SAYF("\n\nTrace_bits");
+//
+//  for (u32 i = 0; i <= 10; i++) {
+//    SAYF("\nEdge: %u", trace_bits[i]);
+//  }
 
 
-    if (hash != 0) {
+  for (u32 i = 0; edge_bits[i] != 0; i++) {
+    u32 hash = edge_bits[i];
+
+    u8 count;
+    u32 *current_ = &trace_bits[hash];
+    u32 *virgin_ = &virgin_map[hash];
+
+    u8* cur = (u8*) current_;
+    u8* vir = (u8*) virgin_;
+
+//    ACTF("Checking edge %u", hash);
+//    ACTF("Checking hits %u", count);
+//    ACTF("Checking virgin %u", count);
+
+    if (likely(*current_) && unlikely(*current_ & *virgin_)) {
+      if (ret < 2) {
 
 #ifdef __x86_64__
 
-      if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
-           (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff) ||
-           (cur[4] && vir[4] == 0xff) || (cur[5] && vir[5] == 0xff) ||
-           (cur[6] && vir[6] == 0xff) || (cur[7] && vir[7] == 0xff)) ret = 2;
-       else ret = 1;
+        if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
+             (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff) ||
+             (cur[4] && vir[4] == 0xff) || (cur[5] && vir[5] == 0xff) ||
+             (cur[6] && vir[6] == 0xff) || (cur[7] && vir[7] == 0xff)) ret = 2;
+         else ret = 1;
 
 #else
 
-      if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
-          (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff)) ret = 2;
-      else ret = 1;
+        if ((cur[0] && vir[0] == 0xff) || (cur[1] && vir[1] == 0xff) ||
+            (cur[2] && vir[2] == 0xff) || (cur[3] && vir[3] == 0xff))
+          ret = 2;
+        else ret = 1;
 
 #endif /* ^__x86_64__ */
-
+      }
       // update hit counts
-      *(virgin) &= ~*current;
-
-    } else break;  // the end of covered edges
-
-    // iterate the covered edge
-    marker++;
+      virgin_map[hash] &= ~trace_bits[hash];
+    }
   }
 
   if (ret && virgin_map == virgin_bits) bitmap_changed = 1;
@@ -1442,6 +1436,7 @@ EXP_ST void setup_shm(void) {
 
   trace_bits = shmat(shm_id, NULL, 0);
   edge_bits = shmat(shm_id_, NULL, 0);
+//  edge_bits = &trace_bits[MAP_SIZE];
 
   if (!trace_bits) PFATAL("shmat() failed");
   if (!edge_bits) PFATAL("shmat() 2 failed");

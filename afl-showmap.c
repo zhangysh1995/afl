@@ -146,6 +146,7 @@ static void setup_shm(void) {
   u8* shm_str_;
 
   shm_id = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
+//  shm_id = shmget(IPC_PRIVATE, 2*MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
   shm_id_ = shmget(IPC_PRIVATE, MAP_SIZE, IPC_CREAT | IPC_EXCL | 0600);
 
   if (shm_id < 0) PFATAL("shmget() failed");

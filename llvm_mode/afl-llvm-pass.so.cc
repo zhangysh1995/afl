@@ -152,6 +152,10 @@ bool AFLCoverage::runOnModule(Module &M) {
       /* Load SHM pointer */
 
       Value *edge = IRB.CreateXor(PrevLocCasted, CurLoc);
+
+      // we insert here
+      IRB.CreateCall(UpdateShared, edge);
+
       LoadInst *MapPtr = IRB.CreateLoad(AFLMapPtr);
       MapPtr->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
       Value *MapPtrIdx = IRB.CreateGEP(MapPtr, edge);
@@ -180,9 +184,6 @@ bool AFLCoverage::runOnModule(Module &M) {
 //      LoadInst *EdgeCounter = IRB.CreateLoad(EdgeCovMarker);
 //      EdgeCounter->setMetadata(M.getMDKindID("nosanitize"), MDNode::get(C, None));
 //      Value *EdgeCounterCasted = IRB.CreateZExt(EdgeCounter, IRB.getInt32Ty());
-
-      // we insert here
-      IRB.CreateCall(UpdateShared, edge);
 
       inst_blocks++;
 

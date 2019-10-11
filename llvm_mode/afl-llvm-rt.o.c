@@ -50,11 +50,11 @@
    is used for instrumentation output before __afl_map_shm() has a chance to run.
    It will end up as .comm, so it shouldn't be too wasteful. */
 
-u8  __afl_area_initial[MAP_SIZE];
+u8  __afl_area_initial[2*MAP_SIZE];
 u8* __afl_area_ptr = __afl_area_initial;
 
-u8 __afl_edge_initial[MAP_SIZE];
-u8* __afl_edge_ptr = __afl_edge_initial;
+u32 __afl_edge_initial[MAP_SIZE];
+u32* __afl_edge_ptr = __afl_edge_initial;
 
 
 __thread u32 __afl_prev_loc;
@@ -72,12 +72,20 @@ void _update_table(u32 edge) {
     __afl_edge_ptr[__afl_edge_loc] = edge;
     __afl_edge_loc += 1;
 
-    for (int i = 0; i <= 100; i++) {
-      SAYF("Edge: %u", __afl_edge_ptr[i]);
-    }
+//    for (int i = 0; i <= 100; i++) {
+//      SAYF("Edge: %u", __afl_edge_ptr[i]);
+//    }
 
-    WARNF("We update edges! %u", __afl_edge_loc);
+//    WARNF("We update edges! %u", __afl_edge_loc);
+//    WARNF("We add edge! %u %u", edge, __afl_edge_ptr[__afl_edge_loc-1]);
+//
+//    u32* ptr = __afl_edge_ptr;
+//    for (u32 i = 0; __afl_edge_ptr[i] != 0; i++) {
+//      WARNF("All Edges: %u", __afl_edge_ptr[i]);
+//    }
   }
+
+  return;
 }
 
 static void __afl_map_shm(void) {
