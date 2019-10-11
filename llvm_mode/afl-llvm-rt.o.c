@@ -97,7 +97,7 @@ static void __afl_map_shm(void) {
      early-stage __afl_area_initial region that is needed to allow some really
      hacky .init code to work correctly in projects such as OpenSSL. */
 
-  ACTF("We get environment variable");
+//  ACTF("We get environment variable");
 
   if (id_str && id_str_) {
 

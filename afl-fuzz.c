@@ -909,8 +909,9 @@ static inline u8 has_new_bits(u8* virgin_map) {
 //    SAYF("\nEdge: %u", trace_bits[i]);
 //  }
 
+u32 i = 0;
 
-  for (u32 i = 0; edge_bits[i] != 0; i++) {
+while (likely(edge_bits[i])) {
     u32 hash = edge_bits[i];
 
     u8 count;
@@ -925,7 +926,7 @@ static inline u8 has_new_bits(u8* virgin_map) {
 //    ACTF("Checking virgin %u", count);
 
     if (likely(*current_) && unlikely(*current_ & *virgin_)) {
-      if (ret < 2) {
+      if (likely(ret < 2)) {
 
 #ifdef __x86_64__
 
@@ -947,6 +948,8 @@ static inline u8 has_new_bits(u8* virgin_map) {
       // update hit counts
       virgin_map[hash] &= ~trace_bits[hash];
     }
+    
+    i++;
   }
 
   if (ret && virgin_map == virgin_bits) bitmap_changed = 1;
